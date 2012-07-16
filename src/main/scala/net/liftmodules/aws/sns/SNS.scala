@@ -40,19 +40,13 @@ type HandlerFunction = PartialFunction[Payload,Unit]
 }
 case class AWSCreds(access:String,secret:String)
 
-trait SNSConfig {
-  
-  val creds:AWSCreds
-  val arn:String
-  val path:List[String]
-  val address:Option[String]
-  val port:Option[Int]
-  val protocol:Option[Protocol.Value]
-}
-
-case class SNS(config:SNSConfig,handler: HandlerFunction) extends RestHelper with LiftActor with Loggable {
+case class SNSConfig(creds:AWSCreds,arn:String,path:List[String],address:String,port:Int,protocol:Protocol.Value)
+case class SNS(config:SNSConfig)(handler: HandlerFunction) extends RestHelper with LiftActor with Loggable {
  
+  
   lazy val service = new AmazonSNSClient(new BasicAWSCredentials(config.creds.access,config.creds.secret));
+  
+  private[this] var uarn: Option[String] = None    
   
   def init:Unit = {
       LiftRules.statelessDispatch.append(this)    
@@ -60,7 +54,6 @@ case class SNS(config:SNSConfig,handler: HandlerFunction) extends RestHelper wit
       this ! Subscribe()
   }
  
-  def postSubscriptionSetup:Unit = {}
   
 
   object MsgType extends Enumeration("Notification", "SubscriptionConfirmation") {
@@ -98,23 +91,19 @@ case class SNS(config:SNSConfig,handler: HandlerFunction) extends RestHelper wit
     case PostBootSubscribe()  =>
         logger.info("boot complete, subscribing.")      
         subscribe
-        postSubscriptionSetup
     case Subscribe() if LiftRules.doneBoot =>
-     logger.info("sleep fro a bit before subscribing")      
+     logger.info("sleep for a bit before subscribing")      
       Schedule.perform(this, PostBootSubscribe(), 10000L)
     case Subscribe()  =>
      logger.info("wait until we have finished booting.")      
       Schedule.perform(this, Subscribe(), 5000L)//have a nap and try again.
-      
     case  Publish(msg) ⇒ service.publish(new PublishRequest().withTopicArn(config.arn).withMessage(msg))
     case otherwise =>  logger.warn("Unexpected msg %s".format(otherwise))
   }
-
-  private[this] var uarn: Option[String] = None  
   
-  private[this] def subscribe = {            
-      logger.info("Subscribing to endpoint %s - %s %s %s".format(endpoint,config.protocol,config.address,config.port))
-      service.subscribe(new SubscribeRequest().withTopicArn(config.arn).withProtocol("http").withEndpoint(endpoint))  
+  private[this] def subscribe = { 
+      logger.info("Subscribing to endpoint %s - %s %s %s".format(ep))
+      service.subscribe(new SubscribeRequest().withTopicArn(config.arn).withProtocol("http").withEndpoint(ep))  
   }
   
   private[this] def confirmation(token: String, arn: String) = { 
@@ -123,13 +112,12 @@ case class SNS(config:SNSConfig,handler: HandlerFunction) extends RestHelper wit
   }
   
   private[this] def unsubscribe = {
-      logger.info("unsubscribing from %s uarn %s".format(endpoint, uarn))
+      logger.info("unsubscribing from %s uarn %s".format(ep, uarn))
       uarn.map { u ⇒ service.unsubscribe(new UnsubscribeRequest().withSubscriptionArn(u)) }
       uarn = None
   }  
-  //|@| === ⊛ 
-  private[this] def endpoint:String =  (config.protocol ⊛   config.address ⊛  config.port ) { ep _ } getOrElse ""
 
-  private[this] def ep(protocol:Protocol.Value,address:String,port:Int):String =  "%s://%s:%s/%s".format(protocol,address,port, config.path.mkString("/"))
+
+  private[this] lazy val ep:String =  "%s://%s:%s/%s".format(config.protocol,config.address,config.port, config.path.mkString("/"))
   
 }
