@@ -45,9 +45,9 @@ trait SNSConfig {
   val creds:AWSCreds
   val arn:String
   val path:List[String]
-  val address:Box[String]
-  val port:Box[Int]
-  val protocol:Box[Protocol.Value]
+  val address:Option[String]
+  val port:Option[Int]
+  val protocol:Option[Protocol.Value]
 }
 
 case class SNS(config:SNSConfig,handler: HandlerFunction) extends RestHelper with LiftActor with Loggable {
@@ -127,8 +127,8 @@ case class SNS(config:SNSConfig,handler: HandlerFunction) extends RestHelper wit
       uarn.map { u ⇒ service.unsubscribe(new UnsubscribeRequest().withSubscriptionArn(u)) }
       uarn = None
   }  
-  //|@| -> ⊛ 
-  private[this] def endpoint:String =  (config.protocol.toOption ⊛   config.address.toOption ⊛  config.port.toOption ) { ep _ } getOrElse ""
+  //|@| === ⊛ 
+  private[this] def endpoint:String =  (config.protocol ⊛   config.address ⊛  config.port ) { ep _ } getOrElse ""
 
   private[this] def ep(protocol:Protocol.Value,address:String,port:Int):String =  "%s://%s:%s/%s".format(protocol,address,port, config.path.mkString("/"))
   
