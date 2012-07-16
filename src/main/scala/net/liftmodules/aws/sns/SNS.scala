@@ -44,9 +44,9 @@ case class SNSConfig(creds:AWSCreds,arn:String,path:List[String],address:String,
 case class SNS(config:SNSConfig)(handler: HandlerFunction) extends RestHelper with LiftActor with Loggable {
  
   
-  lazy val service = new AmazonSNSClient(new BasicAWSCredentials(config.creds.access,config.creds.secret));
+  lazy val client = new AmazonSNSClient(new BasicAWSCredentials(config.creds.access,config.creds.secret))
   
-  private[this] var uarn: Option[String] = None    
+  private[this] var subscriptionId: Option[String] = None    
   
   def init:Unit = {
       LiftRules.statelessDispatch.append(this)    
@@ -97,24 +97,24 @@ case class SNS(config:SNSConfig)(handler: HandlerFunction) extends RestHelper wi
     case Subscribe()  =>
      logger.info("wait until we have finished booting.")      
       Schedule.perform(this, Subscribe(), 5000L)//have a nap and try again.
-    case  Publish(msg) ⇒ service.publish(new PublishRequest().withTopicArn(config.arn).withMessage(msg))
+    case  Publish(msg) ⇒ client.publish(new PublishRequest().withTopicArn(config.arn).withMessage(msg))
     case otherwise =>  logger.warn("Unexpected msg %s".format(otherwise))
   }
   
   private[this] def subscribe = { 
       logger.info("Subscribing to endpoint %s - %s %s %s".format(ep))
-      service.subscribe(new SubscribeRequest().withTopicArn(config.arn).withProtocol("http").withEndpoint(ep))  
+      client.subscribe(new SubscribeRequest().withTopicArn(config.arn).withProtocol("http").withEndpoint(ep))  
   }
   
   private[this] def confirmation(token: String, arn: String) = { 
-    uarn = Option(service.confirmSubscription(new ConfirmSubscriptionRequest().withTopicArn(arn).withToken(token)).getSubscriptionArn) 
-    logger.trace("confirmation  %s".format(uarn))  
+    subscriptionId = Option(client.confirmSubscription(new ConfirmSubscriptionRequest().withTopicArn(arn).withToken(token)).getSubscriptionArn) 
+    logger.trace("confirmation %s".format(subscriptionId))  
   }
   
   private[this] def unsubscribe = {
-      logger.info("unsubscribing from %s uarn %s".format(ep, uarn))
-      uarn.map { u ⇒ service.unsubscribe(new UnsubscribeRequest().withSubscriptionArn(u)) }
-      uarn = None
+      logger.info("unsubscribing from %s uarn %s".format(ep, subscriptionId))
+      subscriptionId.foreach { u ⇒ client.unsubscribe(new UnsubscribeRequest().withSubscriptionArn(u)) }
+      subscriptionId = None
   }  
 
 
