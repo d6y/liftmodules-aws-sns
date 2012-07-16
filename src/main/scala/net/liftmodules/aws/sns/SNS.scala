@@ -1,28 +1,28 @@
 package net.liftmodules.aws.sns
 
 import java.net.InetAddress
+
 import net.liftweb.actor.LiftActor
-import net.liftweb.common.Box.box2Option
 import net.liftweb.common.Loggable
-import net.liftweb.http.LiftRulesMocker.toLiftRules
 import net.liftweb.http.rest.RestHelper
 import net.liftweb.http.LiftRules
 import net.liftweb.http.OkResponse
 import net.liftweb.json.JsonAST.JValue
 import net.liftweb.json.parse
 import net.liftweb.util.Helpers.tryo
+import net.liftweb.common.Box
+import net.liftweb.util.Schedule
+import net.liftweb.json.JString
+
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.sns.model.ConfirmSubscriptionRequest
 import com.amazonaws.services.sns.model.PublishRequest
 import com.amazonaws.services.sns.model.SubscribeRequest
 import com.amazonaws.services.sns.model.UnsubscribeRequest
 import com.amazonaws.services.sns.AmazonSNSClient
-import SNS.HandlerFunction
-import net.liftweb.common.Box
-import net.liftweb.util.Schedule
 
-import scalaz.{Empty ⇒ _, _}
-import Scalaz._
+import SNS.HandlerFunction
+
 
 sealed trait SNSMsg
 case class Subscribe() extends SNSMsg
@@ -35,15 +35,15 @@ object Protocol extends Enumeration("http","https") {
 }
 
 object SNS {
-type Payload= JValue
+type Payload = String
 type HandlerFunction = PartialFunction[Payload,Unit]
 }
 case class AWSCreds(access:String,secret:String)
 
 case class SNSConfig(creds:AWSCreds,arn:String,path:List[String],address:String,port:Int,protocol:Protocol.Value)
+
 case class SNS(config:SNSConfig)(handler: HandlerFunction) extends RestHelper with LiftActor with Loggable {
- 
-  
+   
   lazy val client = new AmazonSNSClient(new BasicAWSCredentials(config.creds.access,config.creds.secret))
   
   private[this] var subscriptionId: Option[String] = None    
@@ -79,7 +79,7 @@ case class SNS(config:SNSConfig)(handler: HandlerFunction) extends RestHelper wi
               token ← (json \ "Token").extractOpt[String]
               arn ← (json \ "TopicArn").extractOpt[String]
             } this ! confirmation(token, arn)
-          case Some(MsgType.Notification) ⇒ handler.apply(json \ "Message")
+          case Some(MsgType.Notification) ⇒ for( JString(msg) ← (json \ "Message") ) handler(msg)
           case otherwise ⇒ logger.error("Unknown message %s raw body %s".format(otherwise, s))
         }
       }

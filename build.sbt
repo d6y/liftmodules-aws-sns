@@ -19,9 +19,8 @@ libraryDependencies ++= {
 libraryDependencies ++= Seq(
   "javax.servlet" % "servlet-api" % "2.5" % "provided->default",
   "ch.qos.logback" % "logback-classic" % "1.0.6" % "compile->default", // Logging
-  "com.amazonaws" % "aws-java-sdk" % "1.3.13",
-  "org.scalaz" %% "scalaz-core" % "6.0.4"
-)
+  "com.amazonaws" % "aws-java-sdk" % "1.3.13"
+ )
 
  // To publish to the Cloudbees repos:
 
