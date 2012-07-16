@@ -1,6 +1,6 @@
 name := "aws-sns"
 
-version := "2.5-SNAPSHOT-0.0.1"
+version := "2.5-SNAPSHOT-0.0.2"
 
 organization := "net.liftmodules"
  
@@ -18,8 +18,8 @@ libraryDependencies ++= {
 // Customize any further dependencies as desired
 libraryDependencies ++= Seq(
   "javax.servlet" % "servlet-api" % "2.5" % "provided->default",
-  "ch.qos.logback" % "logback-classic" % "0.9.26" % "compile->default", // Logging
-  "com.amazonaws" % "aws-java-sdk" % "1.3.10",
+  "ch.qos.logback" % "logback-classic" % "1.0.6" % "compile->default", // Logging
+  "com.amazonaws" % "aws-java-sdk" % "1.3.13",
   "org.scalaz" %% "scalaz-core" % "6.0.4"
 )
 
